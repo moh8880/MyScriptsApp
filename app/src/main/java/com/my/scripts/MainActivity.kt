@@ -125,9 +125,9 @@ class MainActivity : Activity() {
     private fun killBackgroundAppsAndTermux() {
         val shellCmd = "RISH=\"/data/data/com.termux/files/home/rish\"; " +
             "if [ -x \"\$RISH\" ]; then " +
-            "\"\$RISH\" -c 'for pkg in \$(pm list packages -3 | cut -d: -f2); do " +
+            "\"\$RISH\" -c 'for pkg in \$(pm list packages -3 --user 0 | cut -d: -f2); do " +
             "case \"\$pkg\" in *shizuku*|*registar*|com.my.scripts|com.termux*) ;; " +
-            "*) am force-stop \"\$pkg\" ;; esac; done'; " +
+            "*) am force-stop --user 0 \"\$pkg\" ;; esac; done'; " +
             "fi; kill -9 -1"
 
         val intent = Intent().apply {
