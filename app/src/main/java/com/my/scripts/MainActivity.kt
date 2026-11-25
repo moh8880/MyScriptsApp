@@ -15,13 +15,15 @@ import android.view.ViewGroup
 import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.FrameLayout
-import android.widget.ImageView
+import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.recyclerview.widget.GridLayoutManager
+import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.RecyclerView
 import org.json.JSONArray
 import org.json.JSONObject
+import java.util.Collections
 
 data class ScriptItem(
     var title: String,
@@ -33,6 +35,7 @@ class MainActivity : Activity() {
 
     private val prefsName = "my_scripts_prefs"
     private val keyScripts = "scripts_json"
+    private val keyEndTermuxAdded = "end_termux_added_v4"
     private val shortcutsDir = "/data/data/com.termux/files/home/.shortcuts/"
 
     private val scripts = mutableListOf<ScriptItem>()
@@ -40,8 +43,8 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        window.statusBarColor = Color.parseColor("#090D16")
-        window.navigationBarColor = Color.parseColor("#111827")
+        window.statusBarColor = Color.parseColor("#0A1A05")
+        window.navigationBarColor = Color.parseColor("#000000")
         setContentView(R.layout.activity_main)
 
         loadScripts()
@@ -57,9 +60,53 @@ class MainActivity : Activity() {
                 }.start()
                 runTermuxScript(item)
             },
-            onLongClick = { index -> showEditOrDeleteDialog(index) }
+            onMoreClick = { index -> showEditOrDeleteDialog(index) }
         )
         recycler.adapter = adapter
+
+        // Enable Drag & Drop reordering on long press
+        val dragFlags = ItemTouchHelper.UP or ItemTouchHelper.DOWN or ItemTouchHelper.LEFT or ItemTouchHelper.RIGHT
+        val touchHelper = ItemTouchHelper(object : ItemTouchHelper.SimpleCallback(dragFlags, 0) {
+            override fun onMove(
+                rv: RecyclerView,
+                viewHolder: RecyclerView.ViewHolder,
+                target: RecyclerView.ViewHolder
+            ): Boolean {
+                val from = viewHolder.bindingAdapterPosition
+                val to = target.bindingAdapterPosition
+                if (from == RecyclerView.NO_POSITION || to == RecyclerView.NO_POSITION) return false
+                if (from < to) {
+                    for (i in from until to) {
+                        Collections.swap(scripts, i, i + 1)
+                    }
+                } else {
+                    for (i in from downTo to + 1) {
+                        Collections.swap(scripts, i, i - 1)
+                    }
+                }
+                adapter.notifyItemMoved(from, to)
+                return true
+            }
+
+            override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {}
+
+            override fun onSelectedChanged(viewHolder: RecyclerView.ViewHolder?, actionState: Int) {
+                super.onSelectedChanged(viewHolder, actionState)
+                if (actionState == ItemTouchHelper.ACTION_STATE_DRAG && viewHolder != null) {
+                    viewHolder.itemView.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                    viewHolder.itemView.animate().scaleX(1.06f).scaleY(1.06f).alpha(0.92f).setDuration(120).start()
+                    viewHolder.itemView.elevation = 16f
+                }
+            }
+
+            override fun clearView(rv: RecyclerView, viewHolder: RecyclerView.ViewHolder) {
+                super.clearView(rv, viewHolder)
+                viewHolder.itemView.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(120).start()
+                viewHolder.itemView.elevation = 4f
+                saveScripts()
+            }
+        })
+        touchHelper.attachToRecyclerView(recycler)
 
         findViewById<View>(R.id.btnAdd).setOnClickListener { v ->
             v.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
@@ -68,17 +115,24 @@ class MainActivity : Activity() {
     }
 
     private fun runTermuxScript(item: ScriptItem) {
-        val fullPath = if (item.scriptFile.startsWith("/")) {
-            item.scriptFile
-        } else {
-            shortcutsDir + item.scriptFile
-        }
-
         val intent = Intent().apply {
             setClassName("com.termux", "com.termux.app.RunCommandService")
             action = "com.termux.RUN_COMMAND"
-            putExtra("com.termux.RUN_COMMAND_PATH", fullPath)
-            putExtra("com.termux.RUN_COMMAND_BACKGROUND", item.runInBackground)
+
+            if (item.scriptFile.equals("kill_termux.sh", ignoreCase = true)) {
+                // Direct built-in End Termux command (works without needing an external file)
+                putExtra("com.termux.RUN_COMMAND_PATH", "/data/data/com.termux/files/usr/bin/bash")
+                putExtra("com.termux.RUN_COMMAND_ARGUMENTS", arrayOf("-c", "kill -9 -1"))
+                putExtra("com.termux.RUN_COMMAND_BACKGROUND", true)
+            } else {
+                val fullPath = if (item.scriptFile.startsWith("/")) {
+                    item.scriptFile
+                } else {
+                    shortcutsDir + item.scriptFile
+                }
+                putExtra("com.termux.RUN_COMMAND_PATH", fullPath)
+                putExtra("com.termux.RUN_COMMAND_BACKGROUND", item.runInBackground)
+            }
         }
 
         try {
@@ -87,7 +141,12 @@ class MainActivity : Activity() {
             } else {
                 startService(intent)
             }
-            Toast.makeText(this, "جاري تشغيل: ${item.title}", Toast.LENGTH_SHORT).show()
+            val msg = if (item.scriptFile.equals("kill_termux.sh", ignoreCase = true)) {
+                "تم إغلاق Termux وكل العمليات"
+            } else {
+                "جاري تشغيل: ${item.title}"
+            }
+            Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
         } catch (e: SecurityException) {
             Toast.makeText(
                 this,
@@ -137,6 +196,7 @@ class MainActivity : Activity() {
     }
 
     private fun showEditOrDeleteDialog(index: Int) {
+        if (index < 0 || index >= scripts.size) return
         val options = arrayOf("تعديل", "حذف")
         AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
             .setTitle(scripts[index].title)
@@ -160,9 +220,11 @@ class MainActivity : Activity() {
                 listOf(
                     ScriptItem("Payslip 5", "payslip5.sh", false),
                     ScriptItem("Payslip 2", "payslip2.sh", false),
-                    ScriptItem("Stop All", "STOP_ALL.sh", true)
+                    ScriptItem("Stop All", "STOP_ALL.sh", true),
+                    ScriptItem("End Termux", "kill_termux.sh", true)
                 )
             )
+            prefs.edit().putBoolean(keyEndTermuxAdded, true).apply()
             saveScripts()
             return
         }
@@ -179,6 +241,16 @@ class MainActivity : Activity() {
                 )
             }
         } catch (_: Exception) {
+        }
+
+        // Automatically add End Termux once when upgrading from earlier versions
+        if (!prefs.getBoolean(keyEndTermuxAdded, false)) {
+            val hasKill = scripts.any { it.scriptFile.equals("kill_termux.sh", ignoreCase = true) }
+            if (!hasKill) {
+                scripts.add(ScriptItem("End Termux", "kill_termux.sh", true))
+                saveScripts()
+            }
+            prefs.edit().putBoolean(keyEndTermuxAdded, true).apply()
         }
     }
 
@@ -201,24 +273,17 @@ class MainActivity : Activity() {
 class ScriptAdapter(
     private val items: List<ScriptItem>,
     private val onClick: (ScriptItem, View) -> Unit,
-    private val onLongClick: (Int) -> Unit
+    private val onMoreClick: (Int) -> Unit
 ) : RecyclerView.Adapter<ScriptAdapter.VH>() {
 
-    private val accentColors = listOf(
-        "#38BDF8", // Sky
-        "#34D399", // Emerald
-        "#A78BFA", // Violet
-        "#FBBF24", // Amber
-        "#FB7185", // Rose
-        "#2DD4BF"  // Teal
-    )
-
     class VH(v: View) : RecyclerView.ViewHolder(v) {
+        val cardRoot: LinearLayout = v.findViewById(R.id.cardRoot)
+        val dotHalo: FrameLayout = v.findViewById(R.id.dotHalo)
+        val dotCore: View = v.findViewById(R.id.dotCore)
         val title: TextView = v.findViewById(R.id.tvTitle)
         val file: TextView = v.findViewById(R.id.tvFile)
         val mode: TextView = v.findViewById(R.id.tvMode)
-        val iconContainer: FrameLayout = v.findViewById(R.id.iconContainer)
-        val ivIcon: ImageView = v.findViewById(R.id.ivIcon)
+        val btnMore: TextView = v.findViewById(R.id.btnMore)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
@@ -228,35 +293,76 @@ class ScriptAdapter(
 
     override fun onBindViewHolder(holder: VH, position: Int) {
         val item = items[position]
-        val accentHex = accentColors[position % accentColors.size]
-        val accentColor = Color.parseColor(accentHex)
+        val isKill = item.scriptFile.equals("kill_termux.sh", ignoreCase = true)
 
         holder.title.text = item.title
         holder.file.text = item.scriptFile
 
-        // Colored icon badge
-        val iconBg = GradientDrawable().apply {
-            shape = GradientDrawable.OVAL
-            setColor(Color.argb(40, Color.red(accentColor), Color.green(accentColor), Color.blue(accentColor)))
-        }
-        holder.iconContainer.background = iconBg
-        holder.ivIcon.setColorFilter(accentColor)
+        if (isKill) {
+            // Red Danger Card for End Termux
+            holder.cardRoot.setBackgroundResource(R.drawable.card_bg_red)
+            holder.title.setTextColor(Color.parseColor("#F87171"))
+            holder.btnMore.setTextColor(Color.parseColor("#FCA5A5"))
 
-        // Status pill
-        val modeColor = if (item.runInBackground) Color.parseColor("#34D399") else Color.parseColor("#38BDF8")
-        holder.mode.text = if (item.runInBackground) "خلفي" else "تيرمكس"
-        holder.mode.setTextColor(modeColor)
-        val modeBg = GradientDrawable().apply {
-            shape = GradientDrawable.RECTANGLE
-            cornerRadius = 50f
-            setColor(Color.argb(35, Color.red(modeColor), Color.green(modeColor), Color.blue(modeColor)))
+            val redColor = Color.parseColor("#EF4444")
+            holder.dotHalo.background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(Color.argb(55, 239, 68, 68))
+            }
+            holder.dotCore.background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(redColor)
+            }
+
+            holder.mode.text = "خلفي"
+            holder.mode.setTextColor(Color.parseColor("#FCA5A5"))
+            holder.mode.background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = 50f
+                setColor(Color.argb(65, 220, 38, 38))
+            }
+        } else {
+            // Glassmorphic Chameleon Green Card
+            holder.cardRoot.setBackgroundResource(R.drawable.card_bg_green)
+            holder.title.setTextColor(Color.parseColor("#FFFFFF"))
+            holder.btnMore.setTextColor(Color.parseColor("#D1D5DB"))
+
+            val isLime = (position % 2 == 0)
+            val dotColor = if (isLime) Color.parseColor("#B8F528") else Color.parseColor("#FACC15")
+            holder.dotHalo.background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(Color.argb(55, Color.red(dotColor), Color.green(dotColor), Color.blue(dotColor)))
+            }
+            holder.dotCore.background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(dotColor)
+            }
+
+            if (item.runInBackground) {
+                holder.mode.text = "خلفي"
+                holder.mode.setTextColor(Color.parseColor("#D1D5DB"))
+                holder.mode.background = GradientDrawable().apply {
+                    shape = GradientDrawable.RECTANGLE
+                    cornerRadius = 50f
+                    setColor(Color.argb(60, 148, 163, 184))
+                }
+            } else {
+                holder.mode.text = "تيرمكس"
+                holder.mode.setTextColor(Color.parseColor("#D4FF3B"))
+                holder.mode.background = GradientDrawable().apply {
+                    shape = GradientDrawable.RECTANGLE
+                    cornerRadius = 50f
+                    setColor(Color.argb(60, 163, 230, 53))
+                }
+            }
         }
-        holder.mode.background = modeBg
 
         holder.itemView.setOnClickListener { onClick(item, it) }
-        holder.itemView.setOnLongClickListener {
-            onLongClick(holder.bindingAdapterPosition)
-            true
+        holder.btnMore.setOnClickListener {
+            val pos = holder.bindingAdapterPosition
+            if (pos != RecyclerView.NO_POSITION) {
+                onMoreClick(pos)
+            }
         }
     }
 

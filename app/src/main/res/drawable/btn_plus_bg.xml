@@ -2,12 +2,25 @@
 <ripple xmlns:android="http://schemas.android.com/apk/res/android"
     android:color="#55FFFFFF">
     <item>
-        <shape android:shape="oval">
-            <gradient
-                android:angle="135"
-                android:startColor="#38BDF8"
-                android:endColor="#2563EB"
-                android:type="linear" />
-        </shape>
+        <layer-list>
+            <item>
+                <shape android:shape="oval">
+                    <solid android:color="#33B8F528" />
+                </shape>
+            </item>
+            <item
+                android:bottom="4dp"
+                android:left="4dp"
+                android:right="4dp"
+                android:top="4dp">
+                <shape android:shape="oval">
+                    <gradient
+                        android:angle="135"
+                        android:startColor="#D4FF3B"
+                        android:endColor="#9EE01E"
+                        android:type="linear" />
+                </shape>
+            </item>
+        </layer-list>
     </item>
 </ripple>

@@ -1,14 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/cardRoot"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_margin="7dp"
-    android:background="@drawable/card_bg"
+    android:background="@drawable/card_bg_green"
     android:clickable="true"
     android:elevation="4dp"
     android:focusable="true"
     android:orientation="vertical"
-    android:padding="16dp">
+    android:padding="15dp">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -17,17 +18,15 @@
         android:orientation="horizontal">
 
         <FrameLayout
-            android:id="@+id/iconContainer"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:background="@drawable/badge_bg">
+            android:id="@+id/dotHalo"
+            android:layout_width="28dp"
+            android:layout_height="28dp">
 
-            <ImageView
-                android:id="@+id/ivIcon"
-                android:layout_width="22dp"
-                android:layout_height="22dp"
-                android:layout_gravity="center"
-                android:src="@drawable/ic_terminal" />
+            <View
+                android:id="@+id/dotCore"
+                android:layout_width="11dp"
+                android:layout_height="11dp"
+                android:layout_gravity="center" />
         </FrameLayout>
 
         <View
@@ -36,16 +35,15 @@
             android:layout_weight="1" />
 
         <TextView
-            android:id="@+id/tvMode"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:background="@drawable/badge_bg"
-            android:paddingStart="10dp"
-            android:paddingTop="4dp"
-            android:paddingEnd="10dp"
-            android:paddingBottom="4dp"
-            android:textColor="#38BDF8"
-            android:textSize="10sp"
+            android:id="@+id/btnMore"
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center"
+            android:text="⋮"
+            android:textColor="#D1D5DB"
+            android:textSize="19sp"
             android:textStyle="bold" />
     </LinearLayout>
 
@@ -56,17 +54,30 @@
         android:layout_marginTop="14dp"
         android:ellipsize="end"
         android:maxLines="1"
-        android:textColor="#F8FAFC"
-        android:textSize="16sp"
+        android:textColor="#FFFFFF"
+        android:textSize="17sp"
         android:textStyle="bold" />
 
     <TextView
         android:id="@+id/tvFile"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
+        android:layout_marginTop="3dp"
         android:ellipsize="end"
         android:maxLines="1"
-        android:textColor="#94A3B8"
-        android:textSize="12sp" />
+        android:textColor="#CBD5E1"
+        android:textSize="12.5sp" />
+
+    <TextView
+        android:id="@+id/tvMode"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:paddingStart="12dp"
+        android:paddingTop="4dp"
+        android:paddingEnd="12dp"
+        android:paddingBottom="4dp"
+        android:textColor="#B8F528"
+        android:textSize="11sp"
+        android:textStyle="bold" />
 </LinearLayout>
