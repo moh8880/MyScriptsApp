@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Subtle glowing terminal frame -->
+    <path
+        android:fillColor="#1A38BDF8"
+        android:strokeColor="#38BDF8"
+        android:strokeWidth="2.5"
+        android:pathData="M32,32 L76,32 C79.3,32 82,34.7 82,38 L82,70 C82,73.3 79.3,76 76,76 L32,76 C28.7,76 26,73.3 26,70 L26,38 C26,34.7 28.7,32 32,32 Z" />
+    <!-- Chevron > -->
+    <path
+        android:strokeColor="#38BDF8"
+        android:strokeWidth="4.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M38,46 L48,54 L38,62" />
+    <!-- Underscore _ -->
+    <path
+        android:strokeColor="#34D399"
+        android:strokeWidth="4.5"
+        android:strokeLineCap="round"
+        android:pathData="M54,62 L68,62" />
+</vector>

@@ -9,7 +9,7 @@
         android:id="@+id/etTitle"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="اسم الزرار (مثلاً: نسخ MyCloud)"
+        android:hint="اسم الزرار (مثلاً: ورد القرآن)"
         android:inputType="text"
         android:singleLine="true" />
 
@@ -18,7 +18,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="12dp"
-        android:hint="اسم السكريبت في .shortcuts (مثلاً: payslip5.sh)"
+        android:hint="اسم السكريبت (مثلاً: payslip5.sh)"
         android:inputType="text"
         android:singleLine="true" />
 
