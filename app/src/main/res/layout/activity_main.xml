@@ -57,21 +57,47 @@
                     android:textSize="13sp" />
             </LinearLayout>
 
-            <TextView
-                android:id="@+id/btnAdd"
-                android:layout_width="56dp"
-                android:layout_height="56dp"
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
                 android:layout_alignParentEnd="true"
                 android:layout_centerVertical="true"
-                android:background="@drawable/btn_plus_bg"
-                android:clickable="true"
-                android:elevation="8dp"
-                android:focusable="true"
-                android:gravity="center"
-                android:text="+"
-                android:textColor="#091204"
-                android:textSize="30sp"
-                android:textStyle="bold" />
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <!-- Small Red Square: Kill Background Apps & Termux -->
+                <FrameLayout
+                    android:id="@+id/btnKillAll"
+                    android:layout_width="46dp"
+                    android:layout_height="46dp"
+                    android:layout_marginEnd="10dp"
+                    android:background="@drawable/btn_kill_bg"
+                    android:clickable="true"
+                    android:elevation="6dp"
+                    android:focusable="true">
+
+                    <ImageView
+                        android:layout_width="22dp"
+                        android:layout_height="22dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_power" />
+                </FrameLayout>
+
+                <!-- Glowing Green Plus Button -->
+                <TextView
+                    android:id="@+id/btnAdd"
+                    android:layout_width="54dp"
+                    android:layout_height="54dp"
+                    android:background="@drawable/btn_plus_bg"
+                    android:clickable="true"
+                    android:elevation="8dp"
+                    android:focusable="true"
+                    android:gravity="center"
+                    android:text="+"
+                    android:textColor="#091204"
+                    android:textSize="30sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
         </RelativeLayout>
 
         <androidx.recyclerview.widget.RecyclerView

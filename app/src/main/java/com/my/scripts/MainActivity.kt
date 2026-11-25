@@ -35,7 +35,7 @@ class MainActivity : Activity() {
 
     private val prefsName = "my_scripts_prefs"
     private val keyScripts = "scripts_json"
-    private val keyEndTermuxAdded = "end_termux_added_v4"
+    private val keyCleanedV5 = "cleaned_kill_card_v5"
     private val shortcutsDir = "/data/data/com.termux/files/home/.shortcuts/"
 
     private val scripts = mutableListOf<ScriptItem>()
@@ -112,27 +112,30 @@ class MainActivity : Activity() {
             v.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
             showAddEditDialog(editIndex = null)
         }
+
+        findViewById<View>(R.id.btnKillAll).setOnClickListener { v ->
+            v.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+            v.animate().scaleX(0.88f).scaleY(0.88f).setDuration(80).withEndAction {
+                v.animate().scaleX(1f).scaleY(1f).setDuration(120).start()
+            }.start()
+            killBackgroundAppsAndTermux()
+        }
     }
 
-    private fun runTermuxScript(item: ScriptItem) {
+    private fun killBackgroundAppsAndTermux() {
+        val shellCmd = "RISH=\"/data/data/com.termux/files/home/rish\"; " +
+            "if [ -x \"\$RISH\" ]; then " +
+            "\"\$RISH\" -c 'for pkg in \$(pm list packages -3 | cut -d: -f2); do " +
+            "case \"\$pkg\" in *shizuku*|*registar*|com.my.scripts|com.termux*) ;; " +
+            "*) am force-stop \"\$pkg\" ;; esac; done'; " +
+            "fi; kill -9 -1"
+
         val intent = Intent().apply {
             setClassName("com.termux", "com.termux.app.RunCommandService")
             action = "com.termux.RUN_COMMAND"
-
-            if (item.scriptFile.equals("kill_termux.sh", ignoreCase = true)) {
-                // Direct built-in End Termux command (works without needing an external file)
-                putExtra("com.termux.RUN_COMMAND_PATH", "/data/data/com.termux/files/usr/bin/bash")
-                putExtra("com.termux.RUN_COMMAND_ARGUMENTS", arrayOf("-c", "kill -9 -1"))
-                putExtra("com.termux.RUN_COMMAND_BACKGROUND", true)
-            } else {
-                val fullPath = if (item.scriptFile.startsWith("/")) {
-                    item.scriptFile
-                } else {
-                    shortcutsDir + item.scriptFile
-                }
-                putExtra("com.termux.RUN_COMMAND_PATH", fullPath)
-                putExtra("com.termux.RUN_COMMAND_BACKGROUND", item.runInBackground)
-            }
+            putExtra("com.termux.RUN_COMMAND_PATH", "/data/data/com.termux/files/usr/bin/bash")
+            putExtra("com.termux.RUN_COMMAND_ARGUMENTS", arrayOf("-c", shellCmd))
+            putExtra("com.termux.RUN_COMMAND_BACKGROUND", true)
         }
 
         try {
@@ -141,12 +144,39 @@ class MainActivity : Activity() {
             } else {
                 startService(intent)
             }
-            val msg = if (item.scriptFile.equals("kill_termux.sh", ignoreCase = true)) {
-                "تم إغلاق Termux وكل العمليات"
+            Toast.makeText(this, "جاري إغلاق تطبيقات الخلفية و Termux...", Toast.LENGTH_SHORT).show()
+        } catch (e: SecurityException) {
+            Toast.makeText(
+                this,
+                "فعّل صلاحية Run commands in Termux من إعدادات التطبيق",
+                Toast.LENGTH_LONG
+            ).show()
+        } catch (e: Exception) {
+            Toast.makeText(this, "خطأ: ${e.message}", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun runTermuxScript(item: ScriptItem) {
+        val fullPath = if (item.scriptFile.startsWith("/")) {
+            item.scriptFile
+        } else {
+            shortcutsDir + item.scriptFile
+        }
+
+        val intent = Intent().apply {
+            setClassName("com.termux", "com.termux.app.RunCommandService")
+            action = "com.termux.RUN_COMMAND"
+            putExtra("com.termux.RUN_COMMAND_PATH", fullPath)
+            putExtra("com.termux.RUN_COMMAND_BACKGROUND", item.runInBackground)
+        }
+
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(intent)
             } else {
-                "جاري تشغيل: ${item.title}"
+                startService(intent)
             }
-            Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "جاري تشغيل: ${item.title}", Toast.LENGTH_SHORT).show()
         } catch (e: SecurityException) {
             Toast.makeText(
                 this,
@@ -220,11 +250,10 @@ class MainActivity : Activity() {
                 listOf(
                     ScriptItem("Payslip 5", "payslip5.sh", false),
                     ScriptItem("Payslip 2", "payslip2.sh", false),
-                    ScriptItem("Stop All", "STOP_ALL.sh", true),
-                    ScriptItem("End Termux", "kill_termux.sh", true)
+                    ScriptItem("Stop All", "STOP_ALL.sh", true)
                 )
             )
-            prefs.edit().putBoolean(keyEndTermuxAdded, true).apply()
+            prefs.edit().putBoolean(keyCleanedV5, true).apply()
             saveScripts()
             return
         }
@@ -243,14 +272,10 @@ class MainActivity : Activity() {
         } catch (_: Exception) {
         }
 
-        // Automatically add End Termux once when upgrading from earlier versions
-        if (!prefs.getBoolean(keyEndTermuxAdded, false)) {
-            val hasKill = scripts.any { it.scriptFile.equals("kill_termux.sh", ignoreCase = true) }
-            if (!hasKill) {
-                scripts.add(ScriptItem("End Termux", "kill_termux.sh", true))
-                saveScripts()
-            }
-            prefs.edit().putBoolean(keyEndTermuxAdded, true).apply()
+        if (!prefs.getBoolean(keyCleanedV5, false)) {
+            val removed = scripts.removeAll { it.scriptFile.equals("kill_termux.sh", ignoreCase = true) }
+            if (removed) saveScripts()
+            prefs.edit().putBoolean(keyCleanedV5, true).apply()
         }
     }
 
@@ -293,67 +318,39 @@ class ScriptAdapter(
 
     override fun onBindViewHolder(holder: VH, position: Int) {
         val item = items[position]
-        val isKill = item.scriptFile.equals("kill_termux.sh", ignoreCase = true)
 
         holder.title.text = item.title
         holder.file.text = item.scriptFile
+        holder.cardRoot.setBackgroundResource(R.drawable.card_bg_green)
+        holder.title.setTextColor(Color.parseColor("#FFFFFF"))
+        holder.btnMore.setTextColor(Color.parseColor("#D1D5DB"))
 
-        if (isKill) {
-            // Red Danger Card for End Termux
-            holder.cardRoot.setBackgroundResource(R.drawable.card_bg_red)
-            holder.title.setTextColor(Color.parseColor("#F87171"))
-            holder.btnMore.setTextColor(Color.parseColor("#FCA5A5"))
+        val isLime = (position % 2 == 0)
+        val dotColor = if (isLime) Color.parseColor("#B8F528") else Color.parseColor("#FACC15")
+        holder.dotHalo.background = GradientDrawable().apply {
+            shape = GradientDrawable.OVAL
+            setColor(Color.argb(55, Color.red(dotColor), Color.green(dotColor), Color.blue(dotColor)))
+        }
+        holder.dotCore.background = GradientDrawable().apply {
+            shape = GradientDrawable.OVAL
+            setColor(dotColor)
+        }
 
-            val redColor = Color.parseColor("#EF4444")
-            holder.dotHalo.background = GradientDrawable().apply {
-                shape = GradientDrawable.OVAL
-                setColor(Color.argb(55, 239, 68, 68))
-            }
-            holder.dotCore.background = GradientDrawable().apply {
-                shape = GradientDrawable.OVAL
-                setColor(redColor)
-            }
-
+        if (item.runInBackground) {
             holder.mode.text = "خلفي"
-            holder.mode.setTextColor(Color.parseColor("#FCA5A5"))
+            holder.mode.setTextColor(Color.parseColor("#D1D5DB"))
             holder.mode.background = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
                 cornerRadius = 50f
-                setColor(Color.argb(65, 220, 38, 38))
+                setColor(Color.argb(60, 148, 163, 184))
             }
         } else {
-            // Glassmorphic Chameleon Green Card
-            holder.cardRoot.setBackgroundResource(R.drawable.card_bg_green)
-            holder.title.setTextColor(Color.parseColor("#FFFFFF"))
-            holder.btnMore.setTextColor(Color.parseColor("#D1D5DB"))
-
-            val isLime = (position % 2 == 0)
-            val dotColor = if (isLime) Color.parseColor("#B8F528") else Color.parseColor("#FACC15")
-            holder.dotHalo.background = GradientDrawable().apply {
-                shape = GradientDrawable.OVAL
-                setColor(Color.argb(55, Color.red(dotColor), Color.green(dotColor), Color.blue(dotColor)))
-            }
-            holder.dotCore.background = GradientDrawable().apply {
-                shape = GradientDrawable.OVAL
-                setColor(dotColor)
-            }
-
-            if (item.runInBackground) {
-                holder.mode.text = "خلفي"
-                holder.mode.setTextColor(Color.parseColor("#D1D5DB"))
-                holder.mode.background = GradientDrawable().apply {
-                    shape = GradientDrawable.RECTANGLE
-                    cornerRadius = 50f
-                    setColor(Color.argb(60, 148, 163, 184))
-                }
-            } else {
-                holder.mode.text = "تيرمكس"
-                holder.mode.setTextColor(Color.parseColor("#D4FF3B"))
-                holder.mode.background = GradientDrawable().apply {
-                    shape = GradientDrawable.RECTANGLE
-                    cornerRadius = 50f
-                    setColor(Color.argb(60, 163, 230, 53))
-                }
+            holder.mode.text = "تيرمكس"
+            holder.mode.setTextColor(Color.parseColor("#D4FF3B"))
+            holder.mode.background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = 50f
+                setColor(Color.argb(60, 163, 230, 53))
             }
         }
 
